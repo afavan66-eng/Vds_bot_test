@@ -5,15 +5,14 @@ from flask import Flask
 from threading import Thread
 import os
 
-# --- SERVER AYARI (Render Hatasını Çözen Kısım) ---
+# --- SERVER AYARI ---
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return "WROX SYSTEM IS LIVE"
+    return "WROX SYSTEM IS ONLINE"
 
 # --- BOT AYARLARI ---
-# @BotFather'dan aldığın tokeni buraya yaz
 API_TOKEN = '8515085006:AAHXt2yp7cg7DxljLMoAX4FOpw4b_QiwCOk' 
 bot = telebot.TeleBot(API_TOKEN)
 user_data = {}
@@ -40,7 +39,7 @@ API_MAP = {
     'tapu': 'https://tapu.cvarysystem.workers.dev/?tc='
 }
 
-# --- BUTONLAR ---
+# --- MENÜLER ---
 def main_menu():
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("🔍 SORGULARI GÖSTER", callback_data="sorgu_listesi"))
@@ -87,7 +86,6 @@ def callback_query(call):
             msg = bot.send_message(chat_id, f"🆔 {q_type.upper()} için TC girin:")
             bot.register_next_step_handler(msg, step_final)
 
-# Adım Adım Fonksiyonları
 def step_ad(message):
     user_data[message.chat.id]['ad'] = message.text
     msg = bot.send_message(message.chat.id, "👤 SOYAD girin:")
@@ -128,7 +126,7 @@ def api_call(chat_id, final_url):
     except:
         bot.send_message(chat_id, "❌ API Hatası.", reply_markup=main_menu())
 
-# --- ÇALIŞTIRMA ---
+# --- RUN ---
 def run():
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
@@ -136,4 +134,5 @@ def run():
 if __name__ == "__main__":
     t = Thread(target=run)
     t.start()
+    print("WROX SYSTEM ONLINE!")
     bot.infinity_polling()
