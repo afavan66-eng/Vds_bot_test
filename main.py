@@ -1,138 +1,188 @@
 import telebot
 from telebot import types
 import requests
-from flask import Flask
+from flask import Flask, render_template_string
 from threading import Thread
-import os
 
-# --- SERVER AYARI ---
+# --- AYARLAR ---
+API_TOKEN = '8515085006:AAHXt2yp7cg7DxljLMoAX4FOpw4b_QiwCOk'
+bot = telebot.TeleBot(API_TOKEN)
 app = Flask(__name__)
 
-@app.route('/')
-def home():
-    return "WROX SYSTEM IS ONLINE"
-
-# --- BOT AYARLARI ---
-API_TOKEN = '8515085006:AAHXt2yp7cg7DxljLMoAX4FOpw4b_QiwCOk' 
-bot = telebot.TeleBot(API_TOKEN)
-user_data = {}
-
-# Workers API Linkleri
+# --- TÜM API LİSTESİ ---
 API_MAP = {
     'tc': 'https://tc.cvarysystem.workers.dev/?tc=',
     'tcpro': 'https://tcpro.cvarysystem.workers.dev/?tc=',
-    'adsoyad': 'https://adsoyad.cvarysystem.workers.dev/?ad={ad}&soyad={soyad}',
     'adililce': 'https://adsoyad.cvarysystem.workers.dev/?ad={ad}&soyad={soyad}&il={il}&ilce={ilce}',
-    'aile': 'https://aile.cvarysystem.workers.dev/?tc=',
-    'ailepro': 'https://ailepro.cvarysystem.workers.dev/?tc=',
     'sulale': 'https://sulale.cvarysystem.workers.dev/?tc=',
     'soyagaci': 'https://soyagaci.cvarysystem.workers.dev/?tc=',
-    'cocuk': 'https://cocuk.cvarysystem.workers.dev/?tc=',
-    'es': 'https://es.cvarysystem.workers.dev/?tc=',
-    'kardes': 'https://kardes.cvarysystem.workers.dev/?tc=',
+    'aile': 'https://aile.cvarysystem.workers.dev/?tc=',
+    'ailepro': 'https://ailepro.cvarysystem.workers.dev/?tc=',
     'adres': 'https://adres.cvarysystem.workers.dev/?tc=',
     'adrespro': 'https://adrespro.cvarysystem.workers.dev/?tc=',
     'tcgsm': 'https://tcgsm.cvarysystem.workers.dev/?tc=',
     'gsmtc': 'https://gsmtc.cvarysystem.workers.dev/?gsm=',
+    'cocuk': 'https://cocuk.cvarysystem.workers.dev/?tc=',
+    'es': 'https://es.cvarysystem.workers.dev/?tc=',
+    'kardes': 'https://kardes.cvarysystem.workers.dev/?tc=',
     'sgk': 'https://sgk.cvarysystem.workers.dev/?tc=',
     'sgk_arkadas': 'https://sgk-arkadas.cvarysystem.workers.dev/?tc=',
     'tapu': 'https://tapu.cvarysystem.workers.dev/?tc='
 }
 
-# --- MENÜLER ---
-def main_menu():
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🔍 SORGULARI GÖSTER", callback_data="sorgu_listesi"))
-    return markup
+user_data = {}
 
-def query_menu():
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    btns = [
-        types.InlineKeyboardButton("🆔 TC Sorgu", callback_data="q_tc"),
-        types.InlineKeyboardButton("👤 Ad Soyad", callback_data="q_adsoyad"),
-        types.InlineKeyboardButton("📍 Ad Soyad İl İlçe", callback_data="q_adililce"),
-        types.InlineKeyboardButton("👨‍👩‍👧‍👦 Aile Sorgu", callback_data="q_aile"),
-        types.InlineKeyboardButton("📞 GSM -> TC", callback_data="q_gsmtc"),
-        types.InlineKeyboardButton("🏢 SGK Sorgu", callback_data="q_sgk"),
-        types.InlineKeyboardButton("📜 Tapu Sorgu", callback_data="q_tapu")
-    ]
-    markup.add(*btns)
-    markup.add(types.InlineKeyboardButton("⬅️ ANA MENÜ", callback_data="back_to_main"))
-    return markup
+# --- WEB PANEL TASARIMI ---
+HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WROX SYSTEM PANEL</title>
+    <style>
+        body { background: #000; color: #ff0000; font-family: 'Courier New', monospace; text-align: center; }
+        .box { max-width: 600px; margin: 40px auto; border: 2px solid #ff0000; padding: 20px; border-radius: 10px; box-shadow: 0 0 20px #ff0000; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .item { background: #111; border: 1px solid #444; padding: 10px; color: #fff; font-size: 0.8em; }
+        a { color: #000; background: #ff0000; padding: 15px; text-decoration: none; font-weight: bold; display: inline-block; margin-top: 20px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h1>WROX SYSTEM</h1>
+        <div class="grid">
+            <div class="item">🆔 TC & PRO</div><div class="item">📍 AD SOYAD İL İLÇE</div>
+            <div class="item">👨‍👩‍👧‍👦 AİLE & PRO</div><div class="item">🌳 SOYAĞACI & SÜLALE</div>
+            <div class="item">🏠 ADRES & PRO</div><div class="item">📞 GSM & SGK</div>
+        </div>
+        <a href="https://t.me/WROXSYSTEMBOT">BOTU BAŞLAT</a>
+    </div>
+</body>
+</html>
+"""
 
-# --- HANDLERS ---
+@app.route('/')
+def index(): return render_template_string(HTML_TEMPLATE)
+
+# --- BOT İŞLEMLERİ ---
+
 @bot.message_handler(commands=['start'])
-def welcome(message):
-    bot.send_message(message.chat.id, "🔥 𝙒𝙍𝙊𝙓 𝙎𝙔𝙎𝙏𝙀𝙈𝙀 𝙃𝙊𝙎̧ 𝙂𝙀𝙇𝘿𝙄̇𝙉𝙄̇𝙕", reply_markup=main_menu())
+def start(m):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🔍 SORGULAR", callback_data="sorgu_listesi"))
+    bot.send_message(m.chat.id, "𝙒𝙍𝙊𝙓 𝙎𝙔𝙎𝙏𝙀𝙈𝙀 𝙃𝙊𝙎̧ 𝙂𝙀𝙇𝘿𝙄̇𝙉𝙄̇𝙕", reply_markup=markup)
 
-@bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):
-    chat_id = call.message.chat.id
-    if call.data == "back_to_main":
-        bot.edit_message_text("🔥 𝙒𝙍𝙊𝙓 𝙎𝙔𝙎𝙏𝙀𝙈𝙀 𝙃𝙊𝙎̧ 𝙂𝙀𝙇𝘿𝙄̇𝙉𝙄̇𝙕", chat_id, call.message.message_id, reply_markup=main_menu())
-    elif call.data == "sorgu_listesi":
-        bot.edit_message_text("👇 Sorgu Seçin:", chat_id, call.message.message_id, reply_markup=query_menu())
-    elif call.data.startswith("q_"):
-        q_type = call.data.replace("q_", "")
-        user_data[chat_id] = {'type': q_type}
+@bot.callback_query_handler(func=lambda c: True)
+def callback(c):
+    cid = c.message.chat.id
+    if c.data == "sorgu_listesi":
+        m = types.InlineKeyboardMarkup(row_width=2)
+        m.add(
+            types.InlineKeyboardButton("🆔 TC", callback_data="b_tc"),
+            types.InlineKeyboardButton("💎 TC PRO", callback_data="b_tcpro"),
+            types.InlineKeyboardButton("📍 AD SOYAD İL/İLÇE", callback_data="b_adililce"),
+            types.InlineKeyboardButton("🌳 SÜLALE", callback_data="b_sulale"),
+            types.InlineKeyboardButton("📜 SOYAĞACI", callback_data="b_soyagaci"),
+            types.InlineKeyboardButton("👨‍👩‍👧‍👦 AİLE", callback_data="b_aile"),
+            types.InlineKeyboardButton("🔥 AİLE PRO", callback_data="b_ailepro"),
+            types.InlineKeyboardButton("🏠 ADRES", callback_data="b_adres"),
+            types.InlineKeyboardButton("🏰 ADRES PRO", callback_data="b_adrespro"),
+            types.InlineKeyboardButton("📲 TC -> GSM", callback_data="b_tcgsm"),
+            types.InlineKeyboardButton("📞 GSM -> TC", callback_data="b_gsmtc"),
+            types.InlineKeyboardButton("👶 ÇOCUK", callback_data="b_cocuk"),
+            types.InlineKeyboardButton("💍 EŞ", callback_data="b_es"),
+            types.InlineKeyboardButton("👫 KARDEŞ", callback_data="b_kardes"),
+            types.InlineKeyboardButton("🏢 SGK", callback_data="b_sgk"),
+            types.InlineKeyboardButton("👥 SGK ARKADAŞ", callback_data="b_sgk_arkadas"),
+            types.InlineKeyboardButton("📑 TAPU", callback_data="b_tapu")
+        )
+        bot.edit_message_text("👇 Sorgu Kategorisi Seçiniz:", cid, c.message.message_id, reply_markup=m)
+    
+    elif c.data.startswith("b_"):
+        act = c.data.split("_")[1]
+        user_data[cid] = {'action': act, 'step': 1}
         
-        if q_type in ["adsoyad", "adililce"]:
-            msg = bot.send_message(chat_id, "👤 AD girin:")
-            bot.register_next_step_handler(msg, step_ad)
-        elif q_type == "gsmtc":
-            msg = bot.send_message(chat_id, "📞 GSM No girin:")
-            bot.register_next_step_handler(msg, step_final)
-        else:
-            msg = bot.send_message(chat_id, f"🆔 {q_type.upper()} için TC girin:")
-            bot.register_next_step_handler(msg, step_final)
+        # Her sorgunun kendine özel ilk sorusu
+        sorular = {
+            'tc': "🆔 Sorgulanacak *TC NUMARASI* giriniz:",
+            'tcpro': "💎 Sorgulanacak *PRO TC NUMARASI* giriniz:",
+            'adililce': "👤 Sorgulama başladı.\n\nLütfen kişinin **ADINI** giriniz:",
+            'sulale': "🌳 Sülale sorgusu için *TC NUMARASI* giriniz:",
+            'soyagaci': "📜 Soyağacı sorgusu için *TC NUMARASI* giriniz:",
+            'aile': "👨‍👩‍👧‍👦 Aile sorgusu için *TC NUMARASI* giriniz:",
+            'ailepro': "🔥 Aile PRO sorgusu için *TC NUMARASI* giriniz:",
+            'adres': "🏠 Adres sorgusu için *TC NUMARASI* giriniz:",
+            'adrespro': "🏰 Adres PRO sorgusu için *TC NUMARASI* giriniz:",
+            'tcgsm': "📲 GSM bulmak için *TC NUMARASI* giriniz:",
+            'gsmtc': "📞 TC bulmak için *GSM NUMARASI* giriniz (Örn: 505...):",
+            'cocuk': "👶 Çocuk sorgusu için *TC NUMARASI* giriniz:",
+            'es': "💍 Eş sorgusu için *TC NUMARASI* giriniz:",
+            'kardes': "👫 Kardeş sorgusu için *TC NUMARASI* giriniz:",
+            'sgk': "🏢 SGK sorgusu için *TC NUMARASI* giriniz:",
+            'sgk_arkadas': "👥 SGK Arkadaş sorgusu için *TC NUMARASI* giriniz:",
+            'tapu': "📑 Tapu sorgusu için *TC NUMARASI* giriniz:"
+        }
+        bot.send_message(cid, sorular[act], parse_mode="Markdown")
 
-def step_ad(message):
-    user_data[message.chat.id]['ad'] = message.text
-    msg = bot.send_message(message.chat.id, "👤 SOYAD girin:")
-    bot.register_next_step_handler(msg, step_soyad)
-
-def step_soyad(message):
-    chat_id = message.chat.id
-    user_data[chat_id]['soyad'] = message.text
-    if user_data[chat_id]['type'] == "adililce":
-        msg = bot.send_message(chat_id, "📍 İL girin:")
-        bot.register_next_step_handler(msg, step_il)
+@bot.message_handler(func=lambda m: True)
+def handle(m):
+    cid = m.chat.id
+    if cid not in user_data: return
+    d = user_data[cid]
+    
+    # AD SOYAD İL İLÇE SIRALI SORU SİSTEMİ
+    if d['action'] == "adililce":
+        if d['step'] == 1:
+            user_data[cid]['ad'] = m.text
+            user_data[cid]['step'] = 2
+            bot.send_message(cid, "👤 Şimdi kişinin **SOYADINI** giriniz:")
+        elif d['step'] == 2:
+            user_data[cid]['soyad'] = m.text
+            user_data[cid]['step'] = 3
+            bot.send_message(cid, "🏙️ Şimdi kişinin yaşadığı **İLİ** giriniz:")
+        elif d['step'] == 3:
+            user_data[cid]['il'] = m.text
+            user_data[cid]['step'] = 4
+            bot.send_message(cid, "🏘️ Son olarak kişinin yaşadığı **İLÇEYİ** giriniz:")
+        elif d['step'] == 4:
+            user_data[cid]['ilce'] = m.text
+            run_q(cid)
     else:
-        d = user_data[chat_id]
-        url = API_MAP['adsoyad'].format(ad=d['ad'], soyad=d['soyad'])
-        api_call(chat_id, url)
+        # Diğer tek adımlı sorgular
+        user_data[cid]['val'] = m.text
+        run_q(cid)
 
-def step_il(message):
-    user_data[message.chat.id]['il'] = message.text
-    msg = bot.send_message(message.chat.id, "🏙️ İLÇE girin:")
-    bot.register_next_step_handler(msg, step_ilce)
-
-def step_ilce(message):
-    chat_id = message.chat.id
-    d = user_data[chat_id]
-    url = API_MAP['adililce'].format(ad=d['ad'], soyad=d['soyad'], il=d['il'], ilce=message.text)
-    api_call(chat_id, url)
-
-def step_final(message):
-    chat_id = message.chat.id
-    url = API_MAP[user_data[chat_id]['type']] + message.text
-    api_call(chat_id, url)
-
-def api_call(chat_id, final_url):
-    bot.send_message(chat_id, "⏳ Sorgulanıyor...")
+def run_q(cid):
+    bot.send_message(cid, "🔄 *WROX Verileri Çekiyor...*", parse_mode="Markdown")
+    d = user_data[cid]
     try:
-        r = requests.get(final_url, timeout=30)
-        bot.send_message(chat_id, f"🔍 *SONUÇLAR:*\n\n`{r.text}`", parse_mode="Markdown", reply_markup=main_menu())
+        if d['action'] == "adililce":
+            url = API_MAP['adililce'].format(ad=d['ad'], soyad=d['soyad'], il=d['il'], ilce=d['ilce'])
+        else:
+            url = API_MAP[d['action']] + d['val']
+        
+        res = requests.get(url, timeout=15).json()
+        out = "✅ *𝙎𝙊𝙉𝙐𝘾̧𝙇𝘼𝙍*\n" + "─" * 15 + "\n"
+        
+        if isinstance(res, list):
+            if len(res) == 0:
+                bot.send_message(cid, "❌ Sonuç bulunamadı.")
+                return
+            for i in res:
+                for k, v in i.items(): out += f"🔹 *{k.upper()}:* `{v}`\n"
+                out += "─" * 10 + "\n"
+        elif isinstance(res, dict):
+            for k, v in res.items(): out += f"🔹 *{k.upper()}:* `{v}`\n"
+        else:
+            out += f"📝 *VERİ:* `{res}`"
+
+        bot.send_message(cid, out + "\n👑 *WROX SYSTEM*", parse_mode="Markdown")
     except:
-        bot.send_message(chat_id, "❌ API Hatası.", reply_markup=main_menu())
+        bot.send_message(cid, "❌ Bir hata oluştu veya sonuç bulunamadı.")
+    
+    del user_data[cid]
 
-# --- RUN ---
-def run():
-    port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
-
+def run(): app.run(host='0.0.0.0', port=8080)
 if __name__ == "__main__":
-    t = Thread(target=run)
-    t.start()
-    print("WROX SYSTEM ONLINE!")
+    Thread(target=run).start()
     bot.infinity_polling()
